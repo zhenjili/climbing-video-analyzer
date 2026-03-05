@@ -1,0 +1,14 @@
+fastapi
+uvicorn[standard]
+python-multipart
+celery[redis]
+redis
+mediapipe
+opencv-python-headless
+numpy
+anthropic
+pydantic
+pydantic-settings
+python-dotenv
+pytest
+httpx
