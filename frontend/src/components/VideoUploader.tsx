@@ -8,6 +8,7 @@ export default function VideoUploader() {
   const router = useRouter();
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [language, setLanguage] = useState("zh");
 
@@ -21,9 +22,10 @@ export default function VideoUploader() {
 
       setError(null);
       setIsUploading(true);
+      setUploadProgress(0);
 
       try {
-        const { task_id } = await uploadVideo(file, language);
+        const { task_id } = await uploadVideo(file, language, setUploadProgress);
         router.push(`/processing/${task_id}`);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Upload failed");
@@ -78,9 +80,18 @@ export default function VideoUploader() {
       }`}
     >
       {isUploading ? (
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin h-8 w-8 border-4 border-blue-500 border-t-transparent rounded-full" />
-          <p className="text-gray-600">Uploading video...</p>
+        <div className="flex flex-col items-center gap-4 w-full max-w-xs mx-auto">
+          <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+            <div
+              className="bg-blue-500 h-full rounded-full transition-all duration-300"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+          <p className="text-gray-600 text-sm">
+            {uploadProgress < 100
+              ? `Uploading... ${uploadProgress}%`
+              : "Processing, please wait..."}
+          </p>
         </div>
       ) : (
         <label className="cursor-pointer flex flex-col items-center gap-4">

@@ -80,23 +80,29 @@ class VideoProcessor:
         cap.release()
         writer.release()
 
-        # Re-encode to H.264 for browser compatibility
-        self._reencode_h264(output_path)
+        # Re-encode to H.264 for browser compatibility, merge audio from original
+        self._reencode_h264(output_path, original_path=input_path)
 
     @staticmethod
-    def _reencode_h264(path: str) -> None:
+    def _reencode_h264(path: str, original_path: str | None = None) -> None:
         tmp = path + ".tmp.mp4"
-        subprocess.run(
-            [
-                "ffmpeg", "-y", "-i", path,
-                "-c:v", "libx264", "-preset", "fast",
-                "-crf", "23", "-pix_fmt", "yuv420p",
-                "-movflags", "+faststart",
-                "-an", tmp,
-            ],
-            capture_output=True,
-            check=True,
-        )
+        cmd = ["ffmpeg", "-y", "-i", path]
+        if original_path:
+            cmd += ["-i", original_path]
+        cmd += [
+            "-c:v", "libx264", "-preset", "fast",
+            "-crf", "23", "-pix_fmt", "yuv420p",
+        ]
+        if original_path:
+            cmd += ["-map", "0:v:0", "-map", "1:a:0?", "-c:a", "aac", "-b:a", "128k"]
+        else:
+            cmd += ["-an"]
+        cmd += ["-movflags", "+faststart", tmp]
+        result = subprocess.run(cmd, capture_output=True)
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"ffmpeg failed (exit {result.returncode}): {result.stderr.decode(errors='replace')}"
+            )
         os.replace(tmp, path)
 
     def extract_keyframes(

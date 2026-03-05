@@ -3,7 +3,7 @@ uvicorn[standard]
 python-multipart
 celery[redis]
 redis
-mediapipe
+mediapipe==0.10.18
 opencv-python-headless
 numpy
 anthropic

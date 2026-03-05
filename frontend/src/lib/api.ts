@@ -1,4 +1,5 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api").trim();
+const BACKEND_BASE = API_BASE.replace(/\/api\/?$/, "");
 
 export interface ImprovementFrame {
   time_sec: number;
@@ -25,22 +26,41 @@ export interface TaskResponse {
   error: string | null;
 }
 
-export async function uploadVideo(file: File, language: string = "zh"): Promise<{ task_id: string }> {
+export async function uploadVideo(
+  file: File,
+  language: string = "zh",
+  onProgress?: (percent: number) => void,
+): Promise<{ task_id: string }> {
   const formData = new FormData();
   formData.append("file", file);
   formData.append("language", language);
 
-  const res = await fetch(`${API_BASE}/upload`, {
-    method: "POST",
-    body: formData,
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `${API_BASE}/upload`);
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    };
+
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(data);
+        } else {
+          reject(new Error(data.detail || "Upload failed"));
+        }
+      } catch {
+        reject(new Error("Upload failed"));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error("Network error"));
+    xhr.send(formData);
   });
-
-  if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.detail || "Upload failed");
-  }
-
-  return res.json();
 }
 
 export async function getTaskStatus(taskId: string): Promise<TaskResponse> {
@@ -50,6 +70,5 @@ export async function getTaskStatus(taskId: string): Promise<TaskResponse> {
 }
 
 export function getVideoUrl(path: string): string {
-  const base = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "http://localhost:8000";
-  return `${base}${path}`;
+  return `${BACKEND_BASE}${path}`;
 }
