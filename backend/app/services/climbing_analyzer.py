@@ -46,7 +46,6 @@ class ClimbingAnalyzer:
 
     def build_analysis_prompt(
         self, pose_frames: list[PoseFrame], fps: float, total_frames: int,
-        language: str = "zh",
     ) -> str:
         duration = total_frames / fps if fps > 0 else 0
         # Sample more frames for better coverage
@@ -109,7 +108,7 @@ Consider these factors:
 - Hip position relative to the wall
 - Knee angles indicate foot placement quality
 
-IMPORTANT: All text values in the JSON response MUST be written in {"Chinese (中文)" if language == "zh" else "English" if language == "en" else language}.
+IMPORTANT: All text values in the JSON response MUST be written in Chinese (中文).
 Respond ONLY with valid JSON, no markdown or explanation outside the JSON."""
 
     def analyze(
@@ -118,9 +117,8 @@ Respond ONLY with valid JSON, no markdown or explanation outside the JSON."""
         fps: float,
         total_frames: int,
         keyframe_images: list[np.ndarray] | None = None,
-        language: str = "zh",
     ) -> AnalysisResult:
-        prompt = self.build_analysis_prompt(pose_frames, fps, total_frames, language=language)
+        prompt = self.build_analysis_prompt(pose_frames, fps, total_frames)
 
         message = self.client.messages.create(
             model="claude-sonnet-4-20250514",

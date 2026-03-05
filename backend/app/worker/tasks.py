@@ -3,7 +3,7 @@ from app.worker.celery_app import celery_app
 
 
 @celery_app.task(bind=True)
-def process_video_task(self, video_path: str, file_id: str, language: str = "zh") -> dict:
+def process_video_task(self, video_path: str, file_id: str) -> dict:
     from app.services.climbing_analyzer import ClimbingAnalyzer
     from app.services.pose_estimator import PoseEstimator
     from app.services.video_processor import VideoProcessor, normalize_video
@@ -33,7 +33,7 @@ def process_video_task(self, video_path: str, file_id: str, language: str = "zh"
     self.update_state(state="ANALYZING", meta={"progress": 80})
     keyframes = processor.extract_keyframes(video_path, pose_frames, count=5)
     analyzer = ClimbingAnalyzer(api_key=settings.anthropic_api_key)
-    analysis = analyzer.analyze(pose_frames, fps, total_frames, keyframes, language=language)
+    analysis = analyzer.analyze(pose_frames, fps, total_frames, keyframes)
 
     # Step 4: Extract improvement frames
     if analysis.improvement_frames:

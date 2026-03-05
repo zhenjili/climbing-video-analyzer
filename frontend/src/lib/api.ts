@@ -28,12 +28,10 @@ export interface TaskResponse {
 
 export async function uploadVideo(
   file: File,
-  language: string = "zh",
   onProgress?: (percent: number) => void,
 ): Promise<{ task_id: string }> {
   const formData = new FormData();
   formData.append("file", file);
-  formData.append("language", language);
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
