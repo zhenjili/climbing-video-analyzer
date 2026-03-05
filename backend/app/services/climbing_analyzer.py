@@ -109,8 +109,7 @@ Consider these factors:
 - Hip position relative to the wall
 - Knee angles indicate foot placement quality
 
-CRITICAL LANGUAGE REQUIREMENT: You MUST write ALL text values (difficulty_explanation, skill_level, suggestions, improvement_frames issue/suggestion) in {{"Chinese (中文)" if language == "zh" else "English" if language == "en" else "Japanese (日本語)" if language == "ja" else language}}. This is non-negotiable. Every single string value in your JSON output must be in this language.
-
+IMPORTANT: All text values in the JSON response MUST be written in {"Chinese (中文)" if language == "zh" else "English" if language == "en" else language}.
 Respond ONLY with valid JSON, no markdown or explanation outside the JSON."""
 
     def analyze(
