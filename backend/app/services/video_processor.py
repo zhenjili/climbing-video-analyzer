@@ -10,6 +10,24 @@ from app.services.pose_estimator import PoseFrame
 POSE_CONNECTIONS = mp.solutions.pose.POSE_CONNECTIONS
 
 
+def normalize_video(input_path: str) -> str:
+    """Apply rotation metadata so OpenCV reads frames in correct orientation."""
+    normalized = input_path + ".normalized.mp4"
+    result = subprocess.run(
+        [
+            "ffmpeg", "-y", "-i", input_path,
+            "-c:v", "libx264", "-preset", "fast",
+            "-crf", "18", "-pix_fmt", "yuv420p",
+            "-c:a", "copy",
+            normalized,
+        ],
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        return input_path
+    return normalized
+
+
 class VideoProcessor:
     def __init__(
         self,

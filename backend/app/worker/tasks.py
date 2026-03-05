@@ -6,13 +6,16 @@ from app.worker.celery_app import celery_app
 def process_video_task(self, video_path: str, file_id: str, language: str = "zh") -> dict:
     from app.services.climbing_analyzer import ClimbingAnalyzer
     from app.services.pose_estimator import PoseEstimator
-    from app.services.video_processor import VideoProcessor
+    from app.services.video_processor import VideoProcessor, normalize_video
 
     def update_progress(progress: int):
         self.update_state(state="PROCESSING", meta={"progress": progress})
 
-    # Step 1: Pose estimation (0-50%)
+    # Step 0: Normalize video rotation for mobile videos
     self.update_state(state="PROCESSING", meta={"progress": 0})
+    video_path = normalize_video(video_path)
+
+    # Step 1: Pose estimation (0-50%)
     estimator = PoseEstimator()
     pose_frames, fps, total_frames = estimator.estimate_video(
         video_path, on_progress=update_progress
