@@ -143,12 +143,14 @@ class VideoProcessor:
             "/System/Library/Fonts/PingFang.ttc",
         ]
         font = ImageFont.load_default()
+        font_loaded = False
         for fp in font_paths:
             if os.path.exists(fp):
                 try:
                     font = ImageFont.truetype(fp, font_size)
-                except Exception:
-                    pass
+                    font_loaded = True
+                except Exception as e:
+                    print(f"[overlay] Font load error for {fp}: {e}")
                 break
 
         # Wrap text to fit within frame width
@@ -187,6 +189,7 @@ class VideoProcessor:
         """Overlay improvement text onto the video at corresponding timestamps.
         Modifies the video file in-place."""
         if not improvement_frames:
+            print("[overlay] No improvement frames, skipping")
             return
 
         cap = cv2.VideoCapture(video_path)
@@ -194,30 +197,44 @@ class VideoProcessor:
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
+        print(f"[overlay] Video: {video_path}, fps={fps}, {width}x{height}")
+        print(f"[overlay] Improvement frames: {len(improvement_frames)}")
+        for imp in improvement_frames:
+            print(f"[overlay]   time_sec={imp.time_sec}, issue={imp.issue[:30]}...")
+
         if fps <= 0:
             cap.release()
+            print("[overlay] fps <= 0, skipping")
             return
 
         # Build time ranges: each improvement shows for display_duration seconds
         half = display_duration / 2.0
         text_ranges = []
         for idx, imp in enumerate(improvement_frames):
-            start = imp.time_sec - half
+            start = max(0, imp.time_sec - half)
             end = imp.time_sec + half
             label = f"[{idx + 1}/{len(improvement_frames)}] "
             text = f"{label}问题: {imp.issue}\n建议: {imp.suggestion}"
             text_ranges.append((start, end, text))
+            print(f"[overlay] Range {idx}: {start:.2f}s - {end:.2f}s")
 
         tmp_path = video_path + ".overlay.mp4"
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         writer = cv2.VideoWriter(tmp_path, fourcc, fps, (width, height))
 
+        if not writer.isOpened():
+            print(f"[overlay] ERROR: VideoWriter failed to open {tmp_path}")
+            cap.release()
+            return
+
         # Adaptive font size based on video resolution
         font_size = max(16, min(32, height // 25))
         margin = max(10, width // 40)
         y_position = height - max(120, height // 5)
+        print(f"[overlay] font_size={font_size}, margin={margin}, y_position={y_position}")
 
         frame_idx = 0
+        overlaid_count = 0
         while cap.isOpened():
             ret, frame = cap.read()
             if not ret:
@@ -233,6 +250,7 @@ class VideoProcessor:
                         position=(margin, y_position),
                         font_size=font_size,
                     )
+                    overlaid_count += 1
                     break  # Only show one at a time
 
             writer.write(frame)
@@ -241,10 +259,17 @@ class VideoProcessor:
         cap.release()
         writer.release()
 
-        # Re-encode with H.264, keep audio from original video_path
-        # But we need audio from the current video_path (which already has audio)
+        print(f"[overlay] Processed {frame_idx} frames, overlaid text on {overlaid_count} frames")
+
+        if overlaid_count == 0:
+            print("[overlay] WARNING: No frames were overlaid! Removing tmp file.")
+            os.remove(tmp_path)
+            return
+
+        # Re-encode with H.264, keep audio from the original skeleton video
         self._reencode_h264(tmp_path, original_path=video_path)
         os.replace(tmp_path, video_path)
+        print(f"[overlay] Done, replaced {video_path}")
 
     def extract_keyframes(
         self, video_path: str, pose_frames: list[PoseFrame], count: int = 5
