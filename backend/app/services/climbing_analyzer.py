@@ -45,10 +45,12 @@ class ClimbingAnalyzer:
         return tuple((left_hip + right_hip) / 2)
 
     def build_analysis_prompt(
-        self, pose_frames: list[PoseFrame], fps: float, total_frames: int
+        self, pose_frames: list[PoseFrame], fps: float, total_frames: int,
+        language: str = "zh",
     ) -> str:
         duration = total_frames / fps if fps > 0 else 0
-        sample_count = min(len(pose_frames), 10)
+        # Sample more frames for better coverage
+        sample_count = min(len(pose_frames), 20)
         step = max(1, len(pose_frames) // sample_count)
         sampled = pose_frames[::step][:sample_count]
 
@@ -83,6 +85,9 @@ class ClimbingAnalyzer:
 ## Sampled Frame Data (joint angles in degrees, center of gravity in normalized coords)
 {json.dumps(frame_data, indent=2)}
 
+## Available timestamps (seconds)
+{json.dumps([round(pf.frame_index / fps, 2) for pf in pose_frames[::max(1, len(pose_frames) // 20)][:20]], indent=2)}
+
 ## Instructions
 Based on the pose data above, provide a JSON response with:
 1. "difficulty": The estimated climbing grade (V-scale, e.g. "V0"-"V10")
@@ -90,6 +95,12 @@ Based on the pose data above, provide a JSON response with:
 3. "skill_level": One of "Beginner", "Intermediate", "Advanced", "Expert"
 4. "skill_score": Integer 0-100 representing overall climbing technique quality
 5. "suggestions": Array of 3-5 specific, actionable improvement tips
+6. "improvement_frames": Array of 3-5 objects identifying specific moments that need improvement. Each object has:
+   - "time_sec": The timestamp (in seconds, pick from the available timestamps above) where the issue is most visible
+   - "issue": What is wrong at this moment (1-2 sentences, be specific about body positioning)
+   - "suggestion": How to fix it (1-2 sentences, actionable advice)
+
+For improvement_frames, pick diverse timestamps that show DIFFERENT problems (don't cluster them together).
 
 Consider these factors:
 - Joint angles indicate body positioning efficiency
@@ -98,6 +109,7 @@ Consider these factors:
 - Hip position relative to the wall
 - Knee angles indicate foot placement quality
 
+IMPORTANT: All text values in the JSON response MUST be written in {"Chinese (中文)" if language == "zh" else "English" if language == "en" else language}.
 Respond ONLY with valid JSON, no markdown or explanation outside the JSON."""
 
     def analyze(
@@ -106,12 +118,13 @@ Respond ONLY with valid JSON, no markdown or explanation outside the JSON."""
         fps: float,
         total_frames: int,
         keyframe_images: list[np.ndarray] | None = None,
+        language: str = "zh",
     ) -> AnalysisResult:
-        prompt = self.build_analysis_prompt(pose_frames, fps, total_frames)
+        prompt = self.build_analysis_prompt(pose_frames, fps, total_frames, language=language)
 
         message = self.client.messages.create(
             model="claude-sonnet-4-20250514",
-            max_tokens=1024,
+            max_tokens=2048,
             messages=[{"role": "user", "content": prompt}],
         )
 

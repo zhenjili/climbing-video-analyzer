@@ -16,6 +16,9 @@ outputs/
 # Env
 .env
 .env.local
+.env.prod
+backend/.env
+backend/.env.prod
 
 # IDE
 .vscode/

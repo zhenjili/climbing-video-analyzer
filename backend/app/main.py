@@ -12,7 +12,7 @@ app = FastAPI(title="Climbing Video Analyzer")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[o.strip() for o in settings.cors_origins.split(",")],
     allow_methods=["*"],
     allow_headers=["*"],
 )

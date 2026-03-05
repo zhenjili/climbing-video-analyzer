@@ -1,11 +1,19 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
+export interface ImprovementFrame {
+  time_sec: number;
+  image_url: string | null;
+  issue: string;
+  suggestion: string;
+}
+
 export interface AnalysisResult {
   difficulty: string;
   difficulty_explanation: string;
   skill_level: string;
   skill_score: number;
   suggestions: string[];
+  improvement_frames: ImprovementFrame[];
 }
 
 export interface TaskResponse {
@@ -17,9 +25,10 @@ export interface TaskResponse {
   error: string | null;
 }
 
-export async function uploadVideo(file: File): Promise<{ task_id: string }> {
+export async function uploadVideo(file: File, language: string = "zh"): Promise<{ task_id: string }> {
   const formData = new FormData();
   formData.append("file", file);
+  formData.append("language", language);
 
   const res = await fetch(`${API_BASE}/upload`, {
     method: "POST",

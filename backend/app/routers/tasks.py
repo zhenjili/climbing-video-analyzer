@@ -1,7 +1,7 @@
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, UploadFile
+from fastapi import APIRouter, Form, HTTPException, UploadFile
 
 from app.config import settings
 from app.models.schemas import AnalysisResult, TaskResponse, TaskStatus
@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 @router.post("/upload")
-async def upload_video(file: UploadFile) -> dict:
+async def upload_video(file: UploadFile, language: str = Form(default="zh")) -> dict:
     ext = Path(file.filename).suffix.lower()
     if ext not in settings.allowed_extensions:
         raise HTTPException(400, f"Invalid file type: {ext}")
@@ -26,7 +26,7 @@ async def upload_video(file: UploadFile) -> dict:
 
     save_path.write_bytes(content)
 
-    result = process_video_task.delay(str(save_path), file_id)
+    result = process_video_task.delay(str(save_path), file_id, language)
     return {"task_id": result.id}
 
 

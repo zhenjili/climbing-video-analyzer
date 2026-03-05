@@ -1,3 +1,6 @@
+import os
+import subprocess
+
 import cv2
 import mediapipe as mp
 import numpy as np
@@ -77,6 +80,25 @@ class VideoProcessor:
         cap.release()
         writer.release()
 
+        # Re-encode to H.264 for browser compatibility
+        self._reencode_h264(output_path)
+
+    @staticmethod
+    def _reencode_h264(path: str) -> None:
+        tmp = path + ".tmp.mp4"
+        subprocess.run(
+            [
+                "ffmpeg", "-y", "-i", path,
+                "-c:v", "libx264", "-preset", "fast",
+                "-crf", "23", "-pix_fmt", "yuv420p",
+                "-movflags", "+faststart",
+                "-an", tmp,
+            ],
+            capture_output=True,
+            check=True,
+        )
+        os.replace(tmp, path)
+
     def extract_keyframes(
         self, video_path: str, pose_frames: list[PoseFrame], count: int = 5
     ) -> list[np.ndarray]:
@@ -103,3 +125,40 @@ class VideoProcessor:
 
         cap.release()
         return keyframes
+
+    def save_frames_at_timestamps(
+        self,
+        video_path: str,
+        timestamps_sec: list[float],
+        pose_frames: list[PoseFrame],
+        output_dir: str,
+        file_id: str,
+    ) -> dict[float, str]:
+        """Extract frames at given timestamps, draw skeleton, save as JPEG.
+        Returns mapping of timestamp -> saved image filename."""
+        cap = cv2.VideoCapture(video_path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        if fps <= 0:
+            cap.release()
+            return {}
+
+        pose_map = {pf.frame_index: pf for pf in pose_frames}
+        target_frames = {round(t * fps): t for t in timestamps_sec}
+        result: dict[float, str] = {}
+
+        frame_idx = 0
+        while cap.isOpened() and len(result) < len(target_frames):
+            ret, frame = cap.read()
+            if not ret:
+                break
+            if frame_idx in target_frames:
+                ts = target_frames[frame_idx]
+                if frame_idx in pose_map:
+                    frame = self.draw_skeleton(frame, pose_map[frame_idx])
+                filename = f"{file_id}_frame_{ts:.2f}s.jpg"
+                cv2.imwrite(os.path.join(output_dir, filename), frame)
+                result[ts] = filename
+            frame_idx += 1
+
+        cap.release()
+        return result

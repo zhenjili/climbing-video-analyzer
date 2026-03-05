@@ -9,6 +9,7 @@ export default function VideoUploader() {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [language, setLanguage] = useState("zh");
 
   const handleFile = useCallback(
     async (file: File) => {
@@ -22,14 +23,14 @@ export default function VideoUploader() {
       setIsUploading(true);
 
       try {
-        const { task_id } = await uploadVideo(file);
+        const { task_id } = await uploadVideo(file, language);
         router.push(`/processing/${task_id}`);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Upload failed");
         setIsUploading(false);
       }
     },
-    [router]
+    [router, language]
   );
 
   const handleDrop = useCallback(
@@ -51,6 +52,18 @@ export default function VideoUploader() {
   );
 
   return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <select
+          value={language}
+          onChange={(e) => setLanguage(e.target.value)}
+          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm text-gray-700 bg-white"
+        >
+          <option value="zh">中文</option>
+          <option value="en">English</option>
+          <option value="ja">日本語</option>
+        </select>
+      </div>
     <div
       onDragOver={(e) => {
         e.preventDefault();
@@ -91,6 +104,7 @@ export default function VideoUploader() {
         </label>
       )}
       {error && <p className="mt-4 text-red-500 text-sm">{error}</p>}
+    </div>
     </div>
   );
 }

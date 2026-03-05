@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getTaskStatus, TaskResponse } from "@/lib/api";
-import VideoPlayer from "@/components/VideoPlayer";
+import VideoPlayer, { VideoPlayerHandle } from "@/components/VideoPlayer";
 import AnalysisReport from "@/components/AnalysisReport";
 
 export default function ResultsPage({
@@ -12,6 +12,7 @@ export default function ResultsPage({
   params: Promise<{ taskId: string }>;
 }) {
   const router = useRouter();
+  const videoRef = useRef<VideoPlayerHandle>(null);
   const [task, setTask] = useState<TaskResponse | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
 
@@ -45,18 +46,23 @@ export default function ResultsPage({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="space-y-8">
           <div>
             <h2 className="text-lg font-semibold text-gray-800 mb-4">
               Skeleton Overlay
             </h2>
-            {task.video_url && <VideoPlayer videoPath={task.video_url} />}
+            {task.video_url && <VideoPlayer ref={videoRef} videoPath={task.video_url} />}
           </div>
           <div>
             <h2 className="text-lg font-semibold text-gray-800 mb-4">
               AI Analysis
             </h2>
-            {task.analysis && <AnalysisReport analysis={task.analysis} />}
+            {task.analysis && (
+              <AnalysisReport
+                analysis={task.analysis}
+                onSeek={(sec) => videoRef.current?.seekTo(sec)}
+              />
+            )}
           </div>
         </div>
       </div>

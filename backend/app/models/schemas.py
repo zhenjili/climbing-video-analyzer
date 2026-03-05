@@ -10,12 +10,20 @@ class TaskStatus(str, Enum):
     FAILED = "failed"
 
 
+class ImprovementFrame(BaseModel):
+    time_sec: float
+    image_url: str | None = None
+    issue: str
+    suggestion: str
+
+
 class AnalysisResult(BaseModel):
     difficulty: str
     difficulty_explanation: str
     skill_level: str
     skill_score: int
     suggestions: list[str]
+    improvement_frames: list[ImprovementFrame] = []
 
 
 class TaskResponse(BaseModel):

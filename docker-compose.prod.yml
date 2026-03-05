@@ -1,0 +1,63 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env.prod
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - uploads:/app/uploads
+      - outputs:/app/outputs
+    depends_on:
+      - redis
+
+  worker:
+    build: ./backend
+    restart: unless-stopped
+    command: celery -A app.worker.celery_app worker --loglevel=info --concurrency=2
+    env_file:
+      - ./backend/.env.prod
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - uploads:/app/uploads
+      - outputs:/app/outputs
+    depends_on:
+      - redis
+
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - outputs:/app/outputs:ro
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    depends_on:
+      - api
+
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+
+volumes:
+  redis_data:
+  uploads:
+  outputs:
+  certbot_conf:
+  certbot_www:

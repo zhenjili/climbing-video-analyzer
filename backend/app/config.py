@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     max_video_size_mb: int = 100
     allowed_extensions: set[str] = {".mp4", ".mov", ".avi", ".mkv"}
+    cors_origins: str = "http://localhost:3000,http://localhost:3001"
 
     model_config = {"env_file": ".env"}
 

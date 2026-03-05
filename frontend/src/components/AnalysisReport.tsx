@@ -1,4 +1,4 @@
-import { AnalysisResult } from "@/lib/api";
+import { AnalysisResult, getVideoUrl } from "@/lib/api";
 
 function SkillBar({ score }: { score: number }) {
   const color =
@@ -13,7 +13,13 @@ function SkillBar({ score }: { score: number }) {
   );
 }
 
-export default function AnalysisReport({ analysis }: { analysis: AnalysisResult }) {
+export default function AnalysisReport({
+  analysis,
+  onSeek,
+}: {
+  analysis: AnalysisResult;
+  onSeek?: (seconds: number) => void;
+}) {
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-xl shadow-sm border p-6">
@@ -56,6 +62,43 @@ export default function AnalysisReport({ analysis }: { analysis: AnalysisResult 
           ))}
         </ul>
       </div>
+
+      {analysis.improvement_frames && analysis.improvement_frames.length > 0 && (
+        <div className="bg-white rounded-xl shadow-sm border p-6">
+          <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide mb-4">
+            Needs Improvement
+          </h3>
+          <div className="space-y-4">
+            {analysis.improvement_frames.map((frame, i) => (
+              <div key={i} className="flex gap-4 border rounded-lg p-3">
+                {frame.image_url && (
+                  <img
+                    src={getVideoUrl(frame.image_url)}
+                    alt={`Frame at ${frame.time_sec}s`}
+                    className="w-32 h-24 object-cover rounded flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => onSeek?.(frame.time_sec)}
+                  />
+                )}
+                <div className="flex-1 min-w-0 space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onSeek?.(frame.time_sec)}
+                      className="inline-flex items-center gap-1 text-xs font-mono bg-blue-50 text-blue-600 px-2 py-0.5 rounded hover:bg-blue-100 transition-colors"
+                    >
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M6.3 2.84A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.27l9.344-5.891a1.5 1.5 0 000-2.538L6.3 2.841z" />
+                      </svg>
+                      {frame.time_sec.toFixed(1)}s
+                    </button>
+                  </div>
+                  <p className="text-sm text-red-600 font-medium">{frame.issue}</p>
+                  <p className="text-sm text-gray-600">{frame.suggestion}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
