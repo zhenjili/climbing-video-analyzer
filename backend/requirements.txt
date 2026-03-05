@@ -6,6 +6,7 @@ redis
 mediapipe==0.10.18
 opencv-python-headless
 numpy
+Pillow
 anthropic
 pydantic
 pydantic-settings
