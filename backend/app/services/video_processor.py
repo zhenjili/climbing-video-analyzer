@@ -137,20 +137,23 @@ class VideoProcessor:
         overlay = Image.new("RGBA", pil_img.size, (0, 0, 0, 0))
         draw = ImageDraw.Draw(overlay)
 
+        # Look for bundled font first, then system fonts
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         font_paths = [
+            os.path.join(base_dir, "fonts", "NotoSansSC.ttf"),
             "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
             "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-            "/System/Library/Fonts/PingFang.ttc",
+            "/System/Library/Fonts/STHeiti Medium.ttc",
         ]
         font = ImageFont.load_default()
-        font_loaded = False
         for fp in font_paths:
             if os.path.exists(fp):
                 try:
                     font = ImageFont.truetype(fp, font_size)
-                    font_loaded = True
+                    print(f"[overlay] Loaded font: {fp}")
                 except Exception as e:
                     print(f"[overlay] Font load error for {fp}: {e}")
+                    continue
                 break
 
         # Wrap text to fit within frame width
