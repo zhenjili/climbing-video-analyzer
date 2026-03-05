@@ -1,10 +1,13 @@
 import os
 import subprocess
+import textwrap
 
 import cv2
 import mediapipe as mp
 import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 
+from app.models.schemas import ImprovementFrame
 from app.services.pose_estimator import PoseFrame
 
 POSE_CONNECTIONS = mp.solutions.pose.POSE_CONNECTIONS
@@ -122,6 +125,126 @@ class VideoProcessor:
                 f"ffmpeg failed (exit {result.returncode}): {result.stderr.decode(errors='replace')}"
             )
         os.replace(tmp, path)
+
+    @staticmethod
+    def _put_chinese_text(
+        frame: np.ndarray, text: str, position: tuple[int, int],
+        font_size: int = 24, color: tuple[int, int, int] = (255, 255, 255),
+        bg_color: tuple[int, int, int, int] = (0, 0, 0, 180),
+    ) -> np.ndarray:
+        """Draw Chinese text on a frame using PIL (OpenCV putText doesn't support CJK)."""
+        pil_img = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        overlay = Image.new("RGBA", pil_img.size, (0, 0, 0, 0))
+        draw = ImageDraw.Draw(overlay)
+
+        font_paths = [
+            "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/System/Library/Fonts/PingFang.ttc",
+        ]
+        font = ImageFont.load_default()
+        for fp in font_paths:
+            if os.path.exists(fp):
+                try:
+                    font = ImageFont.truetype(fp, font_size)
+                except Exception:
+                    pass
+                break
+
+        # Wrap text to fit within frame width
+        max_chars = max(10, (frame.shape[1] - position[0] * 2) // (font_size // 2))
+        lines = []
+        for paragraph in text.split("\n"):
+            lines.extend(textwrap.wrap(paragraph, width=max_chars) or [""])
+
+        # Calculate text block size
+        line_height = font_size + 6
+        block_height = len(lines) * line_height + 20
+        block_width = frame.shape[1] - position[0] * 2
+
+        # Draw semi-transparent background
+        x, y = position
+        draw.rectangle(
+            [x - 10, y - 10, x + block_width + 10, y + block_height],
+            fill=bg_color,
+        )
+
+        # Draw text lines
+        for i, line in enumerate(lines):
+            draw.text((x, y + i * line_height), line, font=font, fill=(*color, 255))
+
+        # Composite overlay onto original image
+        pil_img = pil_img.convert("RGBA")
+        pil_img = Image.alpha_composite(pil_img, overlay)
+        return cv2.cvtColor(np.array(pil_img.convert("RGB")), cv2.COLOR_RGB2BGR)
+
+    def overlay_text_on_video(
+        self,
+        video_path: str,
+        improvement_frames: list[ImprovementFrame],
+        display_duration: float = 3.0,
+    ) -> None:
+        """Overlay improvement text onto the video at corresponding timestamps.
+        Modifies the video file in-place."""
+        if not improvement_frames:
+            return
+
+        cap = cv2.VideoCapture(video_path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        if fps <= 0:
+            cap.release()
+            return
+
+        # Build time ranges: each improvement shows for display_duration seconds
+        half = display_duration / 2.0
+        text_ranges = []
+        for idx, imp in enumerate(improvement_frames):
+            start = imp.time_sec - half
+            end = imp.time_sec + half
+            label = f"[{idx + 1}/{len(improvement_frames)}] "
+            text = f"{label}问题: {imp.issue}\n建议: {imp.suggestion}"
+            text_ranges.append((start, end, text))
+
+        tmp_path = video_path + ".overlay.mp4"
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        writer = cv2.VideoWriter(tmp_path, fourcc, fps, (width, height))
+
+        # Adaptive font size based on video resolution
+        font_size = max(16, min(32, height // 25))
+        margin = max(10, width // 40)
+        y_position = height - max(120, height // 5)
+
+        frame_idx = 0
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            current_time = frame_idx / fps
+
+            # Check if any improvement text should be displayed
+            for start, end, text in text_ranges:
+                if start <= current_time <= end:
+                    frame = self._put_chinese_text(
+                        frame, text,
+                        position=(margin, y_position),
+                        font_size=font_size,
+                    )
+                    break  # Only show one at a time
+
+            writer.write(frame)
+            frame_idx += 1
+
+        cap.release()
+        writer.release()
+
+        # Re-encode with H.264, keep audio from original video_path
+        # But we need audio from the current video_path (which already has audio)
+        self._reencode_h264(tmp_path, original_path=video_path)
+        os.replace(tmp_path, video_path)
 
     def extract_keyframes(
         self, video_path: str, pose_frames: list[PoseFrame], count: int = 5

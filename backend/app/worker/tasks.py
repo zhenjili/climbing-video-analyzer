@@ -35,7 +35,11 @@ def process_video_task(self, video_path: str, file_id: str) -> dict:
     analyzer = ClimbingAnalyzer(api_key=settings.anthropic_api_key)
     analysis = analyzer.analyze(pose_frames, fps, total_frames, keyframes)
 
-    # Step 4: Extract improvement frames
+    # Step 4: Overlay improvement text on skeleton video
+    if analysis.improvement_frames:
+        processor.overlay_text_on_video(output_path, analysis.improvement_frames)
+
+    # Step 5: Extract improvement frames
     if analysis.improvement_frames:
         timestamps = [f.time_sec for f in analysis.improvement_frames]
         saved = processor.save_frames_at_timestamps(
