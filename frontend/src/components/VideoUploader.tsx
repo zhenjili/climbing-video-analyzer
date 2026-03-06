@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { uploadVideo } from "@/lib/api";
 
@@ -8,18 +8,14 @@ export default function VideoUploader() {
   const router = useRouter();
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isPreparing, setIsPreparing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const pendingFileRef = useRef<File | null>(null);
 
-  const handleFile = useCallback(
+  const startUpload = useCallback(
     async (file: File) => {
-      const validTypes = ["video/mp4", "video/quicktime", "video/x-msvideo", "video/x-matroska"];
-      if (!validTypes.includes(file.type) && !file.name.match(/\.(mp4|mov|avi|mkv)$/i)) {
-        setError("Please upload a video file (MP4, MOV, AVI, or MKV)");
-        return;
-      }
-
-      setError(null);
+      setIsPreparing(false);
       setIsUploading(true);
       setUploadProgress(0);
 
@@ -32,6 +28,32 @@ export default function VideoUploader() {
       }
     },
     [router]
+  );
+
+  const handleFile = useCallback(
+    (file: File) => {
+      const validTypes = ["video/mp4", "video/quicktime", "video/x-msvideo", "video/x-matroska"];
+      if (!validTypes.includes(file.type) && !file.name.match(/\.(mp4|mov|avi|mkv)$/i)) {
+        setError("Please upload a video file (MP4, MOV, AVI, or MKV)");
+        return;
+      }
+
+      setError(null);
+      // Show preparing state immediately so the mobile gallery can dismiss
+      setIsPreparing(true);
+      pendingFileRef.current = file;
+
+      // Defer the actual upload to the next frame, allowing the
+      // mobile file picker / photo gallery to close first
+      setTimeout(() => {
+        const pending = pendingFileRef.current;
+        if (pending) {
+          pendingFileRef.current = null;
+          startUpload(pending);
+        }
+      }, 100);
+    },
+    [startUpload]
   );
 
   const handleDrop = useCallback(
@@ -66,7 +88,12 @@ export default function VideoUploader() {
           : "border-gray-300 hover:border-gray-400"
       }`}
     >
-      {isUploading ? (
+      {isPreparing ? (
+        <div className="flex flex-col items-center gap-4 w-full max-w-xs mx-auto py-4">
+          <div className="w-10 h-10 border-4 border-gray-200 border-t-blue-500 rounded-full animate-spin" />
+          <p className="text-gray-600 text-sm">Loading video...</p>
+        </div>
+      ) : isUploading ? (
         <div className="flex flex-col items-center gap-4 w-full max-w-xs mx-auto">
           <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
             <div
